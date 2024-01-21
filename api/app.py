@@ -125,8 +125,8 @@ def config(url):
     index_of_colon = encoded_url.find(":")
     
     if not query_string:
-        if '/&' in encoded_url:
-            param = urlparse(encoded_url.split('/&')[1])
+        if '&' in encoded_url:
+            param = urlparse(encoded_url.split('&', 1)[-1])
             request.args = dict(item.split('=') for item in param.path.split('&'))
             if request.args.get('prefix'):
                 request.args['prefix'] = unquote(request.args['prefix'])
@@ -137,35 +137,30 @@ def config(url):
                     if next_index < len(request.args['file']) and request.args['file'][next_index] != "/":
                         request.args['file'] = request.args['file'][:next_index-1] + "/" + request.args['file'][next_index-1:]
     else:
-        if '/&' in query_string:
-            param = urlparse(query_string.split('/&')[1])
-            request.args = dict(item.split('=') for item in param.path.split('&'))
-            if request.args.get('prefix'):
-                request.args['prefix'] = unquote(request.args['prefix'])
-            if request.args.get('file'):
-                index = request.args.get('file').find(":")
-                next_index = index + 2
-                if index != -1:
-                    if next_index < len(request.args['file']) and request.args['file'][next_index] != "/":
-                        request.args['file'] = request.args['file'][:next_index-1] + "/" + request.args['file'][next_index-1:]
+        param = urlparse(query_string.split('&', 1)[-1])
+        request.args = dict(item.split('=') for item in param.path.split('&'))
+        if request.args.get('prefix'):
+            request.args['prefix'] = unquote(request.args['prefix'])
+        if request.args.get('file'):
+            index = request.args.get('file').find(":")
+            next_index = index + 2
+            if index != -1:
+                if next_index < len(request.args['file']) and request.args['file'][next_index] != "/":
+                    request.args['file'] = request.args['file'][:next_index-1] + "/" + request.args['file'][next_index-1:]
+        elif 'file=' in query_string:
+            index = query_string.find("file=")
+            request.args['file'] = query_string.split('file=')[-1].split('&', 1)[0]
     #print (f"request.args: {request.args}")
 
     if index_of_colon != -1:
         # 检查 ":" 后面是否只有一个 "/"，如果是，添加一个额外的 "/"
         next_char_index = index_of_colon + 2
         if next_char_index < len(encoded_url) and encoded_url[next_char_index] != "/":
-            if '/&' in encoded_url:
-                encoded_url = encoded_url[:next_char_index-1] + "/" + encoded_url[next_char_index-1:encoded_url.find("/&")]
-            else:
-                encoded_url = encoded_url[:next_char_index-1] + "/" + encoded_url[next_char_index-1:]
-        if '/&' in encoded_url:
-            encoded_url = encoded_url[:encoded_url.find("/&")]
-        else:
-            encoded_url = encoded_url[:]
+            encoded_url = encoded_url[:next_char_index-1] + "/" + encoded_url[next_char_index-1:]
     if query_string:
-        full_url = f"{encoded_url}?{query_string.split('/&')[0]}"
+        full_url = f"{encoded_url}?{query_string}"
     else:
-        full_url = f"{encoded_url.split('/&')[0]}"
+        full_url = f"{encoded_url.split('&')[0]}"
 
     #print (f"full_url: {full_url}")
 
@@ -178,12 +173,13 @@ def config(url):
 
     # 构建要删除的字符串列表
     params_to_remove = [
-        f'prefix={quote(pre_param)}',
-        f'ua={ua_param}',
-        f'UA={UA_param}',
-        f'file={quote(file_param).replace("/", "%2F")}',
-        f'emoji={emoji_param}',
-        f'tag={tag_param}',
+        f'&prefix={quote(pre_param)}',
+        f'&ua={ua_param}',
+        f'&UA={UA_param}',
+        f'&file={file_param}',
+        f'file={file_param}',
+        f'&emoji={emoji_param}',
+        f'&tag={tag_param}',
     ]
     # 从url中删除这些字符串
     for param in params_to_remove:
@@ -219,7 +215,7 @@ def config(url):
         subscribe['tag'] = tag_param if tag_param else subscribe.get('tag', '')
         subscribe['prefix'] = pre_param if pre_param else subscribe.get('prefix', '')
         subscribe['User-Agent'] = ua_param if ua_param else 'v2rayng'
-        temp_json_data['config_template'] = file_param if file_param else temp_json_data.get('config_template', '')
+    temp_json_data['config_template'] = unquote(file_param) if file_param else temp_json_data.get('config_template', '')
     #print (f"Custom Page for {url} with link={full_url}, emoji={emoji_param}, file={file_param}, tag={tag_param}, UA={ua_param}, prefix={pre_param}")
     #page_content = f"生成的页面内容：{full_url}"
     #return page_content
